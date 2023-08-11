@@ -1,0 +1,136 @@
+# -----------------------------------------------------------------------------#
+# Network Analyses for both bacteria and fungi
+# Author: Geoffrey Zahn
+# Software versions:  R v 4.2.2
+#                     tidyverse v 1.3.2
+#                     vegan v 2.6.4
+#                     phyloseq v 1.42.0
+#                     broom v 1.0.3
+# -----------------------------------------------------------------------------#
+
+# SETUP ####
+# devtools::install_github("zdk123/SpiecEasi")
+# packages 
+library(tidyverse); packageVersion("tidyverse")
+library(vegan); packageVersion("vegan")
+library(phyloseq); packageVersion("phyloseq")
+library(broom); packageVersion("broom")
+library(corncob); packageVersion("corncob")
+library(patchwork); packageVersion("patchwork")
+library(igraph); packageVersion("igraph")
+library(SpiecEasi); packageVersion("SpiecEasi")
+
+# functions
+source("./R/plot_bar2.R")
+
+# Options
+options(scipen=999)
+options(warn=0)
+
+# Data
+bact <- readRDS("./Output/16S_clean_phyloseq_object.RDS") %>% 
+  subset_samples(species == "GrandFir") 
+bact <- bact %>% subset_taxa(taxa_sums(bact) > 0)
+
+fung <- readRDS("./Output/ITS_clean_phyloseq_object.RDS") %>% 
+  subset_samples(species == "GrandFir")
+fung <- fung %>% subset_taxa(taxa_sums(fung) > 0)
+
+# join the two for 'full' microbiome (16S + ITS2)
+full <- merge_phyloseq(bact,fung)
+
+# Barcharts of bact and fung ####
+
+# merge samples by inoc source for plotting
+bact_merged <- bact %>% merge_samples("inoculum_site")
+fung_merged <- fung %>% merge_samples("inoculum_site")
+# repair metadata
+bact_merged@sam_data$inoculum_site <- row.names(bact_merged@sam_data)
+fung_merged@sam_data$inoculum_site <- row.names(fung_merged@sam_data)
+# transform to relabund and plot
+phylum_barplot_by_inoc_bact <- 
+bact_merged %>% 
+  transform_sample_counts(function(x){x/sum(x)}) %>% 
+  plot_bar2(fill = "Phylum") +
+  theme_minimal() +
+  scale_fill_viridis_d(end=.8) +
+  labs(x="Inoculum source",y="Relative abundance",title = "Bacteria")
+phylum_barplot_by_inoc_fung <- 
+fung_merged %>% 
+  transform_sample_counts(function(x){x/sum(x)}) %>% 
+  plot_bar2(fill = "Phylum") +
+  theme_minimal() +
+  scale_fill_viridis_d(end=.8,begin=.2) +
+  labs(x="Inoculum source",y="Relative abundance",title = "Fungi")
+
+saveRDS(phylum_barplot_by_inoc_bact,"./Output/phylum_barplot_by_inoc_bact.RDS")
+saveRDS(phylum_barplot_by_inoc_fung,"./Output/phylum_barplot_by_inoc_fung.RDS")
+
+
+
+
+
+# NETWORK ANALYSES ####
+
+# build presence/absence version for co-occurrence networks
+full_pa <- transform_sample_counts(full,function(x){ifelse(x>0,1,0)})
+
+# build relative abundance version
+full_ra <- transform_sample_counts(full,function(x){x/sum(x)})
+
+
+
+
+## SpiecEasi ####
+se.params <- list(rep.num=20, ncores=(parallel::detectCores()-1))
+
+se.mb.fung <- SpiecEasi::spiec.easi(data = fung,
+                                       method='mb',
+                                       sel.criterion = "bstars",
+                                       pulsar.params=se.params)
+saveRDS(se.mb.fung,"./Output/ITS_SpiecEasi_out.RDS")
+se.mb.bact <- SpiecEasi::spiec.easi(data = bact,
+                                       method='mb',
+                                       sel.criterion = "bstars",
+                                       pulsar.params=se.params)
+saveRDS(se.mb.bact,"./Output/16S_SpiecEasi_out.RDS")
+
+# get best model and build igraph
+fung_igraph <- adj2igraph(getRefit(se.mb.fung), vertex.attr = list(name=NA))
+bact_igraph <- adj2igraph(getRefit(se.mb.bact), vertex.attr = list(name=NA))
+
+# Plot with igraph
+## set size of vertex proportional to clr-mean
+vsize_fung    <- transform_sample_counts(fung,function(x){x/sum(x)}) %>% taxa_sums() + 3
+am.coord_fung <- layout.auto(fung_igraph)
+plot(fung_igraph, layout=am.coord_fung, vertex.size=vsize_fung, vertex.label=NA)
+vsize_bact    <- transform_sample_counts(bact,function(x){x/sum(x)}) %>% taxa_sums() + 3
+am.coord_bact <- layout.auto(bact_igraph)
+plot(bact_igraph, layout=am.coord_bact, vertex.size=vsize_bact, vertex.label=NA)
+
+# Run Specieasi for each marker and inoculum source combination
+# moved to separate script for clarity
+source("./R/SpiecEasi_by_inoc_sources.R")
+
+
+
+
+# NETWORK ANALYSIS ####
+set.seed(666)
+fung_network <- ps %>% 
+  make_network(keep.isolates = TRUE)
+
+# quick plot
+plot_net(ps,distance = 'jaccard',color = 'inoculum_site',rescale = TRUE,maxdist = .7,point_label = "inoculum_burn_freq")
+
+fung_network
+
+igraph::alpha_centrality()
+igraph::assortativity_degree(fung_network,directed = FALSE)
+deg <- igraph::degree(fung_network)
+tmax <- igraph::centr_degree_tmax((fung_network),loops = FALSE)
+igraph::centralize(deg, tmax)
+igraph::cliques(fung_network)
+igraph::assortativity(fung_network,
+                      types1 = ps@sam_data$inoculum_site %>% factor %>% as.numeric)
+igraph::largest_cliques(fung_network)
