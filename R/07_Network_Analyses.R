@@ -115,6 +115,8 @@ source("./R/SpiecEasi_by_inoc_sources.R")
 
 
 
+
+
 # NETWORK ANALYSIS ####
 set.seed(666)
 fung_network <- ps %>% 

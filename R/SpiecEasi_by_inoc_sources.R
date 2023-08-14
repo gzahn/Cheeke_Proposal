@@ -1,3 +1,34 @@
+# -----------------------------------------------------------------------------#
+# SpiecEasi plots for both bacteria and fungi by inoculum source
+# Author: Geoffrey Zahn
+# Software versions:  R v 4.2.2
+#                     tidyverse v 1.3.2
+#                     vegan v 2.6.4
+#                     phyloseq v 1.42.0
+#                     broom v 1.0.3
+# -----------------------------------------------------------------------------#
+
+# SETUP ####
+# devtools::install_github("zdk123/SpiecEasi")
+# packages 
+library(tidyverse); packageVersion("tidyverse")
+library(vegan); packageVersion("vegan")
+library(phyloseq); packageVersion("phyloseq")
+library(broom); packageVersion("broom")
+library(corncob); packageVersion("corncob")
+library(patchwork); packageVersion("patchwork")
+library(igraph); packageVersion("igraph")
+library(SpiecEasi); packageVersion("SpiecEasi")
+
+# Data
+bact <- readRDS("./Output/16S_clean_phyloseq_object.RDS") %>% 
+  subset_samples(species == "GrandFir") 
+bact <- bact %>% subset_taxa(taxa_sums(bact) > 0)
+
+fung <- readRDS("./Output/ITS_clean_phyloseq_object.RDS") %>% 
+  subset_samples(species == "GrandFir")
+fung <- fung %>% subset_taxa(taxa_sums(fung) > 0)
+
 
 # Run for fungi
 for(i in unique(fung@sam_data$inoculum_site)){
@@ -10,7 +41,7 @@ for(i in unique(fung@sam_data$inoculum_site)){
   set.seed(666)
   
   # set pulsar parameters for SpiecEasi
-  se.params <- list(rep.num=20, ncores=ncores)
+  se.params <- list(rep.num=20, ncores=ncores, seed=666)
   
   # subset to a given inoculum source
   ps_sub <- ps %>% 
@@ -23,7 +54,8 @@ for(i in unique(fung@sam_data$inoculum_site)){
   se <- SpiecEasi::spiec.easi(data = ps_sub,
                               method='mb',
                               sel.criterion = "bstars",
-                              pulsar.params=se.params)
+                              pulsar.params=se.params,
+                              verbose=TRUE)
   # build file name
   fn <- paste0("./Output/",marker,"_SpiecEasi_",inoc,"_out.RDS")
   # save spieceasi object for later recall
@@ -44,6 +76,7 @@ for(i in unique(fung@sam_data$inoculum_site)){
   plot(se_igraph, layout=am.coord, vertex.size=vsize, vertex.label=NA,main=paste0(marker,"_inoc_",inoc))
   dev.off()
 }
+
 
 # look at connectivity degree distributions for fungi
 degree_list <- 
@@ -76,32 +109,34 @@ for(i in unique(bact@sam_data$inoculum_site)){
   set.seed(666)
   
   # set pulsar parameters for SpiecEasi
-  se.params <- list(rep.num=20, ncores=ncores)
+  se.params <- list(rep.num=20, ncores=ncores, seed=666)
   
   # subset to a given inoculum source
   ps_sub <- ps %>% 
     subset_samples(inoculum_site == inoc)
   # remove empty ASVs
   ps_sub <- ps_sub %>% 
-    subset_taxa(taxa_sums(ps_sub) > 0)
+    subset_taxa(taxa_sums(ps_sub) > 50)
   ps_sub
+
   # run spieceasi
   se <- SpiecEasi::spiec.easi(data = ps_sub,
                               method='mb',
                               sel.criterion = "bstars",
-                              pulsar.params=se.params)
+                              pulsar.params=se.params,
+                              verbose=TRUE)
   # build file name
   fn <- paste0("./Output/",marker,"_SpiecEasi_",inoc,"_out.RDS")
   # save spieceasi object for later recall
   saveRDS(se, fn)
-  
+
   # get best model and build igraph
   se_igraph <- adj2igraph(getRefit(se), vertex.attr = list(name=NA))
   # save that, as well
   fn2 <- paste0("./Output/",marker,"_igraph_",inoc,"_out.RDS")
   saveRDS(se_igraph, fn2)
   assign(paste0("igraph_",marker,"_",inoc),se_igraph,envir = .GlobalEnv)
-  
+  layout_
   # Plot with igraph
   ## set size of vertex proportional to sum relabund
   vsize    <- transform_sample_counts(ps_sub,function(x){x/sum(x)}) %>% taxa_sums() + 3
@@ -127,6 +162,15 @@ names(degree_df) <- c("Inoc_1","Inoc_2","Inoc_3","Inoc_4","Inoc_5","Inoc_6","Ino
     geom_point() +
     geom_path() +
     theme_minimal() +
-    labs(x="Degree of connectivity",y="Frequency",title = "Fungal community connectivity",color="Inoculum source")
+    labs(x="Degree of connectivity",y="Frequency",title = "Bacterial community connectivity",color="Inoculum source")
 )
-saveRDS(fplot,"./Output/figs/fungal_network_connectivity.RDS")
+saveRDS(fplot,"./Output/figs/bacterial_network_connectivity.RDS")
+
+
+plot.igraph(igraph_V6V8_1)
+plot.igraph(igraph_V6V8_2)
+plot.igraph(igraph_V6V8_3)
+plot.igraph(igraph_V6V8_4)
+plot.igraph(igraph_V6V8_5)
+plot.igraph(igraph_V6V8_6)
+plot.igraph(igraph_V6V8_Sterile)
