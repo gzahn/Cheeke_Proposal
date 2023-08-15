@@ -156,6 +156,12 @@ meta <- microbiome::meta(ps_full) %>% full_join(chem,by="inoculum") %>% sample_d
 sample_names(meta) <- meta$sample_name
 ps_full@sam_data <- sample_data(meta)  
 
+# fix "burn frequency" variable to ordered factor
+ps@sam_data$inoculum_burn_freq <- 
+  ps@sam_data$inoculum_burn_freq %>% as.numeric() %>% ordered()
+ps_full@sam_data$inoculum_burn_freq <- 
+  ps_full@sam_data$inoculum_burn_freq %>% as.numeric() %>% ordered()
+
 # pull out full ps for each inoculum site (recipients)
 for(i in as.character(1:6)){
   x <- ps_full %>% subset_samples(inoculum_site == i)

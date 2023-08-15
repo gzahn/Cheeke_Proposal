@@ -52,7 +52,44 @@ alpha_df %>%
   ggplot(aes(x=Observed,y=as.numeric(leaf_number))) +
   geom_point()
 
-sample_data(ps)
+# custom plot
+p <- 
+  alpha_df %>% 
+  pivot_longer(c(Observed,Shannon,Simpson),names_to = "Measure") %>% 
+  ggplot(aes(x=inoculum_burn_freq,y=value)) +
+  geom_boxplot() +
+  facet_wrap(~Measure,scales = 'free') +
+  theme_minimal()
+p
+saveRDS(p,"./Output/figs/16S_burn_frequency_and_alpha-div.RDS")
+ggsave("./Output/ITS_burn_frequency_and_alpha-div.png",height = 4,width = 6,dpi=300)
+
+p <- 
+  alpha_df %>% 
+  pivot_longer(c(Observed,Shannon,Simpson),names_to = "Measure") %>% 
+  ggplot(aes(x=inoculum_site,y=value)) +
+  geom_boxplot() +
+  facet_wrap(~Measure,scales = 'free') +
+  theme_minimal()
+p
+saveRDS(p,"./Output/figs/16S_inoc_source_and_alpha-div.RDS")
+ggsave("./Output/ITS_inoc_source_and_alpha-div.png",height = 4,width = 6,dpi=300)
+
+# regression on alpha diversity with burn freq predictor
+tuk <- alpha_df %>% 
+  aov(data=.,formula= Simpson ~ inoculum_site) %>% 
+  TukeyHSD()
+tuk$inoculum_site %>%
+  as.data.frame() %>% 
+  dplyr::filter(`p adj` < 0.05) %>% 
+  ggplot(aes(x=row.names(.),y=diff)) +
+  geom_hline(yintercept = 0, linetype=2, color='red') +
+  geom_point() +
+  geom_errorbar(aes(ymax=upr,ymin=lwr)) +
+  labs(x="Inoculum Pair Comparison",y="Alpha Diversity Difference") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(face='bold',size=12))
+ggsave("Output/figs/ITS_Simpson_Div_Difference_Between_Inoc_Source.png",height = 4,width = 4)
 
 # Beta-diversity ####
 ord <- ps %>% 

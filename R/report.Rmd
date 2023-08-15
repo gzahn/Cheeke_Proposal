@@ -14,6 +14,7 @@ library(tidyverse)
 library(knitr)
 library(patchwork)
 library(kableExtra)
+setwd("../R/")
 ```
 
 
@@ -45,6 +46,33 @@ ___
 
 <br>
 
+# **Alpha-diversity exploration**
+
+Here's a quick glance at alpha diversity for both bacterial and fungal ASVs, grouped by inoculum source:
+
+## Bacteria
+```{r}
+knitr::include_graphics("../Output/16S_inoc_source_and_alpha-div.png")
+```
+
+**ANOVA and Tukey Test indicated no significant difference in any of the alpha diversity metrics for bacteria.**
+
+## Fungi
+```{r}
+knitr::include_graphics("../Output/ITS_inoc_source_and_alpha-div.png")
+```
+
+**ANOVA and Tukey Test indicate that samples inoculated from "Inoculum Site 4" had several significant differences in fungal alpha diversity.** Here are the pairings that were significantly different (along with the direction of the difference).
+
+```{r}
+knitr::include_graphics("../Output/figs/ITS_Simpson_Div_Difference_Between_Inoc_Source.png")
+```
+
+<br>
+
+___
+
+<br>
 
 # **Aim 1:** 
 
@@ -78,7 +106,7 @@ ___
 
 ### Bacteria (16S | V6-V8)
 
-  - Trait analysis (BacDive Database)
+  - Trait analysis (BacDive Database analysis slowly ongoing)
   
 
 ### Fungi (ITS2)
@@ -268,7 +296,7 @@ _____
 
 <br>
 
-## Inoculum impact on seedling performance
+## **Inoculum impact on seedling performance**
 
 
 ### Bacteria (16S | V6-V8)
@@ -420,3 +448,59 @@ x$data$variable <- x$data$variable %>%
   str_replace("inoculum_site","site ")
 x
 ```
+
+
+<br>
+
+___
+
+<br>
+
+## **Soil properties influence on microbiome and plant performance**
+
+**Overview of soil properties for each inoculum source:**
+
+
+
+```{r, fig.width=12,fig.height=10}
+df <- read_csv("../Data/SoilChem.csv") %>% 
+  dplyr::select("Field","NO3","NH4","P","K","SO4-S","B","OM","pH","EC","Zn","Mn","Cu","Fe","Ca","Mg","Na", "TKN","C:N") %>% 
+    mutate(inoc_site=Field %>% str_split("-") %>% map_chr(2) %>% str_split("\\.") %>% map_chr(1) %>% 
+             str_remove("W") %>% str_replace("Mixed","Sterile") %>% str_replace("Unmixed","Sterile")) %>% 
+  dplyr::select(-Field) %>% 
+  mutate(across(-inoc_site,SpiecEasi::clr)) %>% 
+  pivot_longer(-inoc_site) 
+
+p <-
+  df %>% 
+  ggplot(aes(x=inoc_site,y=value)) +
+  geom_boxplot() +
+  facet_wrap(~name,scales = 'free') +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle=90,hjust=1),
+        strip.text = element_text(face='bold',size=10),
+        strip.background = element_rect(fill="#8aab8f",color = 'black',linewidth = .5))
+p + labs(caption = "All values are center log-ratio transformed for comparisons")
+```
+
+
+Testing for significant differences between the samples...
+
+Here are the soil properties that differ significantly between inoculum sources. Sterile inoculum soils are set as the intercept. The stats below pretty nicely reflect the obvious patterns in the overall figure.
+```{r}
+mod <- df %>% 
+  mutate(inoc_site=factor(inoc_site,levels=c("Sterile","1","2","3","4","5","6"))) %>% 
+  glm(data=.,formula=value~name+ name:inoc_site) 
+
+mod %>% 
+  broom::tidy() %>% 
+  mutate(term=term %>% str_remove("name")) %>% 
+  dplyr::filter(p.value<0.05) %>% 
+  mutate(across(where(is.numeric),function(x){round(x,3)})) %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_classic(lightable_options = 'hover') %>% 
+  kableExtra::scroll_box(height = '400px',width = '800px')
+```
+
+
+

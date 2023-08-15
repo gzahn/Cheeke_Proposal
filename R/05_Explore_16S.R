@@ -25,11 +25,11 @@ source("./R/bbdml_helper.R")
 # subset to grand fir
 ps <- readRDS("./Output/16S_clean_phyloseq_object.RDS") %>% 
   subset_samples(species == "GrandFir") 
-
+ps@sam_data %>% head
 
 # inoculum data
 inoc <- readRDS("./Output/16S_inoculum_samples_clean_phyloseq_object.RDS")
-
+inoc@sam_data %>% head
 
 # MRM trial ... can we predict final community from inoculum source?
 site1 <- inoc %>% subset_samples(other_frompreviouscolumn == "Site1")
@@ -44,13 +44,13 @@ alpha <- estimate_richness(ps) %>%
 variables <- names(sample_data(ps))
 
 plot_richness(ps,
-              measures = c("Shannon"),
-              color="inoculum",sortby = "Shannon") +
+              measures = c("Shannon","Simpson","Observed"),
+              color="inoculum_burn_freq",sortby = "Simpson") +
   theme(legend.title = element_text(hjust=.5),
         legend.position = "bottom") +
   theme_minimal() +
   theme(axis.text.x = element_blank())
-ggsave("./Output/16S_richness_by_inoculum.png",height = 4,width = 4)
+ggsave("./Output/16S_richness_by_inoculum_burnfreq.png",height = 4,width = 4)
 
 # add alpha diversity estimates to metadata for modeling
 alpha_df <- microbiome::meta(ps) %>%
@@ -60,6 +60,37 @@ alpha_df <- microbiome::meta(ps) %>%
 alpha_df %>% 
   ggplot(aes(x=Observed,y=as.numeric(leaf_number))) +
   geom_point()
+
+# custom plot
+p <- 
+  alpha_df %>% 
+  pivot_longer(c(Observed,Shannon,Simpson),names_to = "Measure") %>% 
+  ggplot(aes(x=inoculum_burn_freq,y=value)) +
+  geom_boxplot() +
+  facet_wrap(~Measure,scales = 'free') +
+  theme_minimal()
+p
+saveRDS(p,"./Output/figs/16S_burn_frequency_and_alpha-div.RDS")
+ggsave("./Output/16S_burn_frequency_and_alpha-div.png",height = 4,width = 6,dpi=300)
+
+p <- 
+alpha_df %>% 
+  pivot_longer(c(Observed,Shannon,Simpson),names_to = "Measure") %>% 
+  ggplot(aes(x=inoculum_site,y=value)) +
+  geom_boxplot() +
+  facet_wrap(~Measure,scales = 'free') +
+  theme_minimal()
+p
+saveRDS(p,"./Output/figs/16S_inoc_source_and_alpha-div.RDS")
+ggsave("./Output/16S_inoc_source_and_alpha-div.png",height = 4,width = 6,dpi=300)
+
+
+
+# regression on alpha diversity with burn freq predictor
+alpha_df %>% 
+  aov(data=.,formula= Simpson ~ inoculum_site) %>% 
+  TukeyHSD() %>% 
+  plot()
 
 sample_data(ps)
 

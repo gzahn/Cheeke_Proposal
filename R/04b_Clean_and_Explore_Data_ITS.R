@@ -130,6 +130,12 @@ meta <- microbiome::meta(ps) %>% full_join(chem,by="inoculum") %>% sample_data()
 sample_names(meta) <- meta$sample_name
 ps@sam_data <- sample_data(meta)
 
+# fix "burn frequency" variable to ordered factor
+ps@sam_data$inoculum_burn_freq <- 
+  ps@sam_data$inoculum_burn_freq %>% as.numeric() %>% ordered()
+ps_full@sam_data$inoculum_burn_freq <- 
+  ps_full@sam_data$inoculum_burn_freq %>% as.numeric() %>% ordered()
+
 # Save DNA sequences apart from rownames (from subsetted ps object)
 seqs <- taxa_names(ps)
 seqs <- DNAStringSet(seqs)
