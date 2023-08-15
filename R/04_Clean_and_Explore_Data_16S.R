@@ -106,6 +106,56 @@ ps@sam_data$inoculum_burn_freq <- ps@sam_data$inoculum %>% str_remove("Burn_.*")
 ps_full@sam_data$inoculum_site <- ps_full@sam_data$inoculum %>% str_remove(".Burn_W")
 ps_full@sam_data$inoculum_burn_freq <- ps_full@sam_data$inoculum %>% str_remove("Burn_.*")
 
+
+# Add Soil Chemistry ####
+chem <- read_csv("./Data/SoilChem.csv")
+
+# make id column match ps
+chem$inoculum <- 
+chem$Field %>% 
+  str_remove(pattern = "\\.[1]") %>% 
+  str_remove(pattern = "\\.[2]") %>% 
+  str_remove(pattern = "\\.[3]") %>% 
+  str_remove(pattern = "Unmixed") %>% 
+  str_remove(pattern = "Mixed") %>% 
+  str_replace(pattern = "-",replacement = "_") %>% 
+  str_remove(pattern = "_$")
+# find mean values of all variables for each inoc site
+chem <- 
+chem %>% 
+  group_by(inoculum) %>% 
+  summarize(mean_NO3 = mean(NO3,na.rm=TRUE),
+            mean_NH4 = mean(NH4,na.rm=TRUE),
+            mean_P = mean(P,na.rm=TRUE),
+            mean_K = mean(K,na.rm=TRUE),
+            mean_SO4_S = mean(`SO4-S`,na.rm=TRUE),
+            mean_B = mean(B,na.rm=TRUE),
+            mean_OM = mean(OM,na.rm=TRUE),
+            mean_pH = mean(pH,na.rm=TRUE),
+            mean_EC = mean(EC,na.rm=TRUE),
+            mean_Zn = mean(Zn,na.rm=TRUE),
+            mean_Mn = mean(Mn,na.rm=TRUE),
+            mean_Cu = mean(Cu,na.rm=TRUE),
+            mean_Fe = mean(Fe,na.rm=TRUE),
+            mean_Ca = mean(Ca,na.rm=TRUE),
+            mean_Mg = mean(Mg,na.rm=TRUE),
+            mean_Na = mean(Na,na.rm=TRUE),
+            mean_TKN = mean(TKN,na.rm=TRUE),
+            mean_C_N_ratio = mean(`C:N`,na.rm=TRUE),
+            mean_Sand = mean(Sand,na.rm=TRUE),
+            mean_Silt = mean(Silt,na.rm=TRUE),
+            mean_Clay = mean(Clay,na.rm=TRUE))
+
+
+# join soil chemistry data with sample metadata
+meta <- microbiome::meta(ps) %>% full_join(chem,by="inoculum") %>% sample_data()
+sample_names(meta) <- meta$sample_name
+ps@sam_data <- sample_data(meta)
+
+meta <- microbiome::meta(ps_full) %>% full_join(chem,by="inoculum") %>% sample_data()
+sample_names(meta) <- meta$sample_name
+ps_full@sam_data <- sample_data(meta)  
+
 # pull out full ps for each inoculum site (recipients)
 for(i in as.character(1:6)){
   x <- ps_full %>% subset_samples(inoculum_site == i)
