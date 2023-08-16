@@ -116,6 +116,39 @@ saveRDS(ord1,"./Output/ITS_Ordination_by_inoculum_source.RDS")
 ggsave("./Output/ITS_Ordination_by_inoculum_burnfreq.png",height = 4,width = 4)
 saveRDS(ord2,"./Output/ITS_Ordination_by_inoculum_burnfreq.RDS")
 
+# Overlay environmental soil variables with ordinations ####
+
+# get dataframe of just soil variables
+soilvars <- microbiome::meta(ps) %>% 
+  dplyr::select(starts_with("mean_"))
+
+# fit environmental vars to NMDS
+env <- envfit(ord,soilvars,na.rm=TRUE)
+plot(env)
+plot(ord)
+plot(env)
+
+# extract info from ordination and envfit
+ord_scores <- scores(ord)$sites %>% as.data.frame
+ord_df <- 
+  ord_scores %>% 
+  bind_cols(soilvars)
+ord_df$inoculum_burn_freq <- ps@sam_data$inoculum_burn_freq
+
+env_scores <- 
+  as.data.frame(scores(env,"vectors")) * ordiArrowMul((env))
+
+envfit_plot_ITS <- 
+  ggplot(data = ord_df, aes(x=NMDS1,y=NMDS2,color=inoculum_burn_freq)) +
+  geom_point(alpha=.7) +
+  geom_segment(aes(x = 0, y = 0, xend = NMDS1, yend = NMDS2), 
+               data = env_scores, linewidth =1, alpha = 0.5, colour = "grey30") +
+  geom_text(data = env_scores, aes(x = NMDS1, y = NMDS2+0.04), 
+            label = row.names(env_scores), colour = "navy", size=2) +
+  coord_cartesian(c(-2.5,3.5)) +
+  theme_minimal()
+saveRDS(envfit_plot_ITS,"./Output/figs/envfit_plot_ITS.RDS")
+
 
 # covariation between inoculum site and burn freq?
 table(alpha_df$inoculum_burn_freq, alpha_df$inoculum_site) %>% 

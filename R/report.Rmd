@@ -20,25 +20,10 @@ setwd("../R/")
 
 **Preliminary data analyses, *focused only on Grand Fir at this time***
 
+**Contaminant ASVs were identified with the prevalence method using the *decontam* package.**
 
-# Takeaways:
+The only taxa identified as contaminant sources in the negative controls were several species of *Puccinia*, *Sebacina*, and *Glonium*. These ASVs were removed from analyses.
 
-Putting the conclusions up top for convenience...
-
-**BACTERIA**
-
-  - Inoculum source had a fairly strong influence on bacterial communities, explaining 30% of community distance
-  - Bacterial taxa *Rhizobium*, *Phenylobacterium*, and *Neorhizobium* are strongly associated with increased "plant health." They seem to be in the right abundances in **inoculum site 4**.
-  - Need Beta-dispersion tests to see whether inoculum bacteria or fungi vary more by source
-  
-
-**FUNGI**
-
-  - Inoculum source explains about 26% of fungal community distance
-  - Found a number of fungi linked to increased "plant health"
-  - But fungi associated with plant metrics were not as linked to their inoculum source as bacteria were
-  - **Need Beta-dispersion tests to see whether inoculum bacteria or fungi vary more by source**
-  
 
 <br>
 
@@ -67,6 +52,8 @@ knitr::include_graphics("../Output/ITS_inoc_source_and_alpha-div.png")
 ```{r}
 knitr::include_graphics("../Output/figs/ITS_Simpson_Div_Difference_Between_Inoc_Source.png")
 ```
+
+
 
 <br>
 
@@ -133,6 +120,33 @@ mod2 %>%
 
 The proportion of mutualist fungal guild(s) in a given sample was a significant indicator of increased plant health, regardless of the health indicator measured.
 
+**We see an opposite pattern when looking at the proportions of putatively saprotrophic and pathogenic fungi**
+
+
+```{r, fig.width=8,fig.height=5}
+p6 <- readRDS("../Output/ITS_Saprotroph_Plot.RDS")
+p7 <- readRDS("../Output/ITS_Pathogen_Plot.RDS")
+p6 
+p7
+
+mod3 <- readRDS("../Output/ITS_Saprotroph_Model.RDS")
+mod3 %>% 
+  broom::tidy() %>% 
+  mutate(term=term %>% str_remove("indicator"),
+         across(where(is.numeric),function(x){round(x,3)})) %>% 
+  kable() %>% 
+  kable_classic(lightable_options = 'hover')
+
+mod4 <- readRDS("../Output/ITS_Pathogen_Model.RDS")
+mod4 %>% 
+  broom::tidy() %>% 
+  mutate(term=term %>% str_remove("indicator"),
+         across(where(is.numeric),function(x){round(x,3)})) %>% 
+  kable() %>% 
+  kable_classic(lightable_options = 'hover')
+
+```
+
 
 ___
 
@@ -188,14 +202,44 @@ _____
 
 ### Bacteria (16S | V6-V8)
 
-  - Network analysis
-  - Co-ocurrence 
+```{r, fig.width=8,fig.height=5}
+knitr::include_graphics("../Output/figs/16S_networks_by_inoculum_source.png")
+```
+
+Bacterial network properties do not really vary much between samples that had different inoculum sources.
+
+```{r, fig.width=8,fig.height=5}
+P <- readRDS("../Output/figs/bacterial_network_connectivity.RDS")
+P
+```
+
+___
 
 ### Fungi (ITS2)
 
-  - Network analysis
-  - Co-ocurrence 
+```{r, fig.width=8,fig.height=5}
+knitr::include_graphics("../Output/figs/ITS_networks_by_inoculum_source.png")
+```
+
+In general, the fungal networks were much less connected than bacterial networks, but connectivity varied widely between samples treated with different inoculum sources. 
+
+```{r, fig.width=8,fig.height=5}
+p <- readRDS("../Output/figs/fungal_network_connectivity.RDS")
+p
+```
+
+Samples inoculated from sites 1 and 4 have significantly stronger co-ocurrence networks.
   
+___
+
+### Cross-Domain 
+
+
+```{r, fig.width=8,fig.height=5}
+knitr::include_graphics("../Output/figs/crossdomain_networks_by_inoculum_source.png")
+```
+  
+**In cross-domain networks, samples inoculated from inoculum source 3, display significantly more connectivity.**
   
 <br>
 _____
@@ -250,6 +294,15 @@ readRDS("../Output/16S_PermANOVA_inoculum_source.RDS") %>%
 
 ___
 
+Same ordination, but with soil variables overlaid:
+
+```{r}
+p <- readRDS("../Output/figs/envfit_plot_16S.RDS")
+p
+```
+
+___
+
 A Heatmap of bacterial ASVs with at least 10% total relative abundance (across all samples), split by inoculum source:
 
 ```{r}
@@ -282,6 +335,14 @@ readRDS("../Output/ITS_PermANOVA_inoculum_source.RDS") %>%
   add_footnote("Inoculum source explains ~ 26% of fungal community structure")
 ```
 
+___
+
+Same ordination, but with soil variables overlaid:
+
+```{r}
+p <- readRDS("../Output/figs/envfit_plot_ITS.RDS")
+p
+```
 ___
 
 A Heatmap of Fungal ASVs with at least 10% total relative abundance (across all samples), split by inoculum source:

@@ -23,7 +23,7 @@ library(SpiecEasi); packageVersion("SpiecEasi")
 # Data
 bact <- readRDS("./Output/16S_clean_phyloseq_object.RDS") %>% 
   subset_samples(species == "GrandFir") 
-bact <- bact %>% subset_taxa(taxa_sums(bact) > 0)
+bact <- bact %>% subset_taxa(taxa_sums(bact) >= 100)
 
 fung <- readRDS("./Output/ITS_clean_phyloseq_object.RDS") %>% 
   subset_samples(species == "GrandFir")
@@ -165,6 +165,98 @@ names(degree_df) <- c("Inoc_1","Inoc_2","Inoc_3","Inoc_4","Inoc_5","Inoc_6","Ino
     labs(x="Degree of connectivity",y="Frequency",title = "Bacterial community connectivity",color="Inoculum source")
 )
 saveRDS(fplot,"./Output/figs/bacterial_network_connectivity.RDS")
+
+
+
+# Run for cross-domain
+for(i in unique(bact@sam_data$inoculum_site)){
+  
+  ps1 <- bact
+  ps2 <- fung
+  inoc <- i
+  marker="cross-domain"
+  ncores <- 24
+  
+  set.seed(666)
+  
+  # set pulsar parameters for SpiecEasi
+  se.params <- list(rep.num=20, ncores=ncores, seed=666)
+  
+  # subset to a given inoculum source
+  ps_sub1 <- ps1 %>% 
+    subset_samples(inoculum_site == inoc)
+  ps_sub2 <- ps2 %>% 
+    subset_samples(inoculum_site == inoc)
+  
+  # remove empty ASVs
+  ps_sub1 <- ps_sub1 %>% 
+    subset_taxa(taxa_sums(ps_sub1) > 50)
+  ps_sub2 <- ps_sub2 %>% 
+    subset_taxa(taxa_sums(ps_sub2) > 0)
+  # make sample names match
+  sample_names(ps_sub2) <- sample_names(ps_sub2) %>% str_remove("F-")
+  ps_sub2 %>% sample_names()
+  ps_sub1 %>% sample_names()
+  
+  # run spieceasi
+  se <- SpiecEasi::spiec.easi(list(ps_sub1,ps_sub2),
+                              method='mb',
+                              sel.criterion = "bstars",
+                              pulsar.params=se.params,
+                              verbose=TRUE)
+  # build file name
+  fn <- paste0("./Output/",marker,"_SpiecEasi_",inoc,"_out.RDS")
+  # save spieceasi object for later recall
+  saveRDS(se, fn)
+  
+  # get best model and build igraph
+  se_igraph <- adj2igraph(getRefit(se), vertex.attr = list(name=NA))
+  # save that, as well
+  fn2 <- paste0("./Output/",marker,"_igraph_",inoc,"_out.RDS")
+  saveRDS(se_igraph, fn2)
+  assign(paste0("igraph_",marker,"_",inoc),se_igraph,envir = .GlobalEnv)
+  
+  # Plot with igraph
+  ## set size of vertex proportional to sum relabund
+  hmp216S
+  ps <- merge_phyloseq(ps_sub1,ps_sub2)
+  taxa_sums(ps) %>% summary
+  vsize    <- transform_sample_counts(ps,
+                                      function(x){x/sum(x)}) %>% taxa_sums() %>% sqrt() + 4
+  
+  vsize %>% summary
+  am.coord <- layout_with_mds(se_igraph)
+  grouping <- c(rep('blue',ntaxa(ps_sub1)), rep('orange',ntaxa(ps_sub2)))
+  png(filename = paste0("./Output/figs/igraph_",marker,"_",inoc,".png"),width = 4,height = 4,res = 200,units = "in")
+  plot(se_igraph, layout=am.coord, vertex.size=vsize, 
+       vertex.label=NA, main=paste0(marker," inoc_source: ",inoc),
+       vertex.color=grouping)
+  dev.off()
+}
+
+# look at connectivity degree distributions for both domains
+degree_list <- 
+  list(`igraph_cross-domain_1`,`igraph_cross-domain_2`,`igraph_cross-domain_3`,
+       `igraph_cross-domain_4`,`igraph_cross-domain_5`,`igraph_cross-domain_6`,`igraph_cross-domain_Sterile`) %>% 
+  map(degree_distribution)
+degree_df <- lapply(degree_list, "length<-", max(lengths(degree_list))) %>% 
+  as.data.frame()
+names(degree_df) <- c("Inoc_1","Inoc_2","Inoc_3","Inoc_4","Inoc_5","Inoc_6","Inoc_Sterile")
+(
+  fplot <- 
+    degree_df %>% 
+    mutate(degree=1:nrow(.)) %>% 
+    pivot_longer(starts_with("Inoc")) %>% 
+    ggplot(aes(x=degree,y=value,color=name)) +
+    geom_point() +
+    geom_path() +
+    theme_minimal() +
+    labs(x="Degree of connectivity",y="Frequency",title = "Full community connectivity",color="Inoculum source")
+)
+saveRDS(fplot,"./Output/figs/cross-domain_network_connectivity.RDS")
+
+
+print.igraph(`igraph_cross-domain_1`)
 
 
 plot.igraph(igraph_V6V8_1)

@@ -43,6 +43,7 @@ guild_db <- FUNGuildR::get_funguild_db()
 
 # save guild db as RDS
 saveRDS(guild_db, "./Taxonomy/Funguild_Database.RDS")
+# guild_db <- readRDS("./Taxonomy/Funguild_Database.RDS")
 
 # assign guild to fungal ASV taxonomy
 guilds <- FUNGuildR::funguild_assign(tax_df)
@@ -134,6 +135,19 @@ mutualist_guilds <-
   grep("[M,m]ycorrhizal",(fung_ra@tax_table[,1]),value = TRUE) %>% 
   unique()
 
+# identify "saprotrophs"
+saprotroph_guilds <- 
+  grep("[S,s]aprotroph",(fung_ra@tax_table[,1]),value = TRUE) %>% 
+  grep(pattern="[M,m]ycorrhizal",x=.,value = TRUE, invert = TRUE) %>% 
+  unique()
+
+# identify "pathogens"
+pathogen_guilds <- 
+  grep("[P,p]athogen|[P,p]arasite",(fung_ra@tax_table[,1]),value = TRUE) %>% 
+  grep(pattern="[M,m]ycorrhizal",x=.,value = TRUE, invert = TRUE) %>% 
+  unique()
+
+
 # subset taxa to only mutualists; get row sums; this will be proportion of mutualists
 # in each sample
 
@@ -147,10 +161,42 @@ mutualism_df <-
   microbiome::meta(fung_ra) %>% 
   mutate(proportion_mutualist = mutualist_proportions)
 
+# subset taxa to only saprotrophs; get row sums; this will be proportion of mutualists
+# in each sample
+
+saprotroph_proportions <- 
+  fung_ra %>% 
+  subset_taxa(Guild %in% saprotroph_guilds) %>% 
+  sample_sums()
+
+# build data frame for modeling
+saprotroph_df <- 
+  microbiome::meta(fung_ra) %>% 
+  mutate(proportion_saprotroph = saprotroph_proportions)
+
+# subset taxa to only mutualists; get row sums; this will be proportion of mutualists
+# in each sample
+
+pathogen_proportions <- 
+  fung_ra %>% 
+  subset_taxa(Guild %in% pathogen_guilds) %>% 
+  sample_sums()
+
+# build data frame for modeling
+pathogen_df <- 
+  microbiome::meta(fung_ra) %>% 
+  mutate(proportion_pathogen = pathogen_proportions)
+
+# join together all 3 major guilds
+guild_df <- 
+mutualism_df %>% 
+  full_join(saprotroph_df) %>% 
+  full_join(pathogen_df)
+
 # plot (just GrandFir)
 (
 mutualist_plot <- 
-mutualism_df %>% 
+guild_df %>% 
   dplyr::filter(species == "GrandFir") %>% 
     mutate(across(c("wilting_scale","bud_number","leaf_number",
                     "leaf_length","height","shoot_dm","final_root_dm"),
@@ -168,12 +214,51 @@ mutualism_df %>%
 )
 saveRDS(mutualist_plot,"./Output/ITS_Mutualist_Plot.RDS")
 
+(
+  saprotroph_plot <- 
+    guild_df %>% 
+    dplyr::filter(species == "GrandFir") %>% 
+    mutate(across(c("wilting_scale","bud_number","leaf_number",
+                    "leaf_length","height","shoot_dm","final_root_dm"),
+                  scale)) %>% # scale/center all indicators
+    pivot_longer(c("wilting_scale","bud_number","leaf_number",
+                   "leaf_length","height","shoot_dm","final_root_dm"),
+                 names_to="indicator") %>% 
+    ggplot(aes(x=proportion_saprotroph,y=value)) +
+    geom_point() +
+    geom_smooth(method='lm') +
+    facet_wrap(~indicator,scales = 'free') +
+    theme_minimal() +
+    theme(strip.text = element_text(face="bold",size=12)) +
+    labs(x="Proportion of saprotrophic fungi",y="Scaled/Centered Value")
+)
+saveRDS(saprotroph_plot,"./Output/ITS_Saprotroph_Plot.RDS")
+
+(
+  pathogen_plot <- 
+    guild_df %>% 
+    dplyr::filter(species == "GrandFir") %>% 
+    mutate(across(c("wilting_scale","bud_number","leaf_number",
+                    "leaf_length","height","shoot_dm","final_root_dm"),
+                  scale)) %>% # scale/center all indicators
+    pivot_longer(c("wilting_scale","bud_number","leaf_number",
+                   "leaf_length","height","shoot_dm","final_root_dm"),
+                 names_to="indicator") %>% 
+    ggplot(aes(x=proportion_pathogen,y=value)) +
+    geom_point() +
+    geom_smooth(method='lm') +
+    facet_wrap(~indicator,scales = 'free') +
+    theme_minimal() +
+    theme(strip.text = element_text(face="bold",size=12)) +
+    labs(x="Proportion of pathogenic fungi",y="Scaled/Centered Value")
+)
+saveRDS(pathogen_plot,"./Output/ITS_Pathogen_Plot.RDS")
 
 ### Modeling ####
 # model: plant health ~ mutualism_% + block + (1|block)
 
 mutualism_glm <- 
-mutualism_df %>% 
+guild_df %>% 
   dplyr::filter(species == "GrandFir") %>% 
   mutate(across(c("wilting_scale","bud_number","leaf_number",
                   "leaf_length","height","shoot_dm","final_root_dm"),
@@ -186,6 +271,33 @@ mutualism_df %>%
 summary(mutualism_glm)
 saveRDS(mutualism_glm,"./Output/ITS_Mutualist_Model.RDS")
 
+saprotroph_glm <- 
+  guild_df %>% 
+  dplyr::filter(species == "GrandFir") %>% 
+  mutate(across(c("wilting_scale","bud_number","leaf_number",
+                  "leaf_length","height","shoot_dm","final_root_dm"),
+                scale)) %>% # scale/center all indicators
+  pivot_longer(c("wilting_scale","bud_number","leaf_number",
+                 "leaf_length","height","shoot_dm","final_root_dm"),
+               names_to="indicator") %>% 
+  glm(data=.,
+      formula=value ~ proportion_saprotroph + proportion_saprotroph:indicator)
+summary(saprotroph_glm)
+saveRDS(saprotroph_glm,"./Output/ITS_Saprotroph_Model.RDS")
+
+pathogen_glm <- 
+  guild_df %>% 
+  dplyr::filter(species == "GrandFir") %>% 
+  mutate(across(c("wilting_scale","bud_number","leaf_number",
+                  "leaf_length","height","shoot_dm","final_root_dm"),
+                scale)) %>% # scale/center all indicators
+  pivot_longer(c("wilting_scale","bud_number","leaf_number",
+                 "leaf_length","height","shoot_dm","final_root_dm"),
+               names_to="indicator") %>% 
+  glm(data=.,
+      formula=value ~ proportion_pathogen + proportion_pathogen:indicator)
+summary(pathogen_glm)
+saveRDS(pathogen_glm,"./Output/ITS_Pathogen_Model.RDS")
 
 ## Functional diversity and plant health ####
 
