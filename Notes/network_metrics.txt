@@ -1,0 +1,7 @@
+
+#### Things to try with the network analyses
+
+Distributions of interaction strengths for each network
+Node degree and betweenness centrality for taxa (nodes)
+	- plot betweenness centrality vs node degree for all nodes
+
