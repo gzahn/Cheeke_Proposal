@@ -89,6 +89,7 @@ se.mb.fung <- SpiecEasi::spiec.easi(data = fung,
                                        sel.criterion = "bstars",
                                        pulsar.params=se.params)
 saveRDS(se.mb.fung,"./Output/ITS_SpiecEasi_out.RDS")
+se.mb.fung <- readRDS("./Output/ITS_SpiecEasi_out.RDS")
 se.mb.bact <- SpiecEasi::spiec.easi(data = bact,
                                        method='mb',
                                        sel.criterion = "bstars",

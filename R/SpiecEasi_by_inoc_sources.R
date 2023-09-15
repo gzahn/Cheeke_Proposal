@@ -85,6 +85,66 @@ degree_list <-
 degree_df <- lapply(degree_list, "length<-", max(lengths(degree_list))) %>% 
   as.data.frame()
 names(degree_df) <- c("Inoc_1","Inoc_2","Inoc_3","Inoc_4","Inoc_5","Inoc_6","Inoc_Sterile")
+
+# convert NA to 0 for regression plotting
+degree_df2 <- degree_df
+degree_df2[is.na(degree_df2)] <- 0 
+c(unlist(degree_df2)) %>% length
+
+# make better network figure for proposal
+
+df <- 
+data.frame(
+  inoc_source=fung@sam_data$inoculum_site,
+  leaf_number=fung@sam_data$leaf_number,
+  bud_count=fung@sam_data$bud_number,
+  height=fung@sam_data$height,
+  shoot_mass=fung@sam_data$shoot_dm,
+  root_mass=fung@sam_data$final_root_dm
+)
+zscore <- function(x){(x-mean(x,na.rm=TRUE)/sd(x,na.rm=TRUE))}
+
+df_long <- 
+bind_cols(apply(df[,-1],2,zscore),inoc_source=df$inoc_source) %>% 
+  pivot_longer(-inoc_source,
+               names_to = "measure",
+               values_to = "zscore")
+
+
+deglist <- 
+  c("igraph_ITS_1",'igraph_ITS_2','igraph_ITS_3','igraph_ITS_4','igraph_ITS_5','igraph_ITS_6',"igraph_ITS_Sterile")
+x <- c()
+for(i in deglist){
+  x[i] <- igraph::degree((get(i)),loops = FALSE) %>% mean(na.rm=FALSE)
+}
+
+x
+df_long %>% 
+  mutate(connectivity = 
+           case_when(inoc_source == "1" ~ x[1],
+                     inoc_source == "2" ~ x[2],
+                     inoc_source == "3" ~ x[3],
+                     inoc_source == "4" ~ x[4],
+                     inoc_source == "5" ~ x[5],
+                     inoc_source == "6" ~ x[6],
+                     inoc_source == "Sterile" ~ x[7])) %>% 
+  dplyr::filter(measure != "bud_count") %>% 
+  mutate(measure=case_when(measure=="height" ~ "Height",
+                           measure=="leaf_number" ~ "Leaf count",
+                           measure=="root_mass" ~ "Root mass",
+                           measure=="shoot_mass" ~ "Shoot mass")) %>% 
+  ggplot(aes(x=connectivity,y=zscore)) +
+  geom_point(alpha=.5) +
+  geom_smooth(method='lm',color='black') +
+  labs(x="Inoculum network connectivity",y="Scaled plant health measure") +
+  facet_wrap(~measure,scales='free') +
+  theme_minimal() +
+  theme(strip.text = element_text(face='bold',size=16),
+        axis.text.y = element_blank(),
+        axis.title = element_text(face='bold',size = 16))
+ggsave("Output/figs/fungal_network_connectivity_vs_plant_health.png")
+
+
 (
 fplot <- 
 degree_df %>% 
