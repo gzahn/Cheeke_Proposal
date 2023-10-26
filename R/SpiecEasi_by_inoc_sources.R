@@ -128,21 +128,22 @@ df_long %>%
                      inoc_source == "5" ~ x[5],
                      inoc_source == "6" ~ x[6],
                      inoc_source == "Sterile" ~ x[7])) %>% 
-  dplyr::filter(measure != "bud_count") %>% 
+  dplyr::filter(measure == "leaf_number") %>% 
   mutate(measure=case_when(measure=="height" ~ "Height",
                            measure=="leaf_number" ~ "Leaf count",
                            measure=="root_mass" ~ "Root mass",
                            measure=="shoot_mass" ~ "Shoot mass")) %>% 
   ggplot(aes(x=connectivity,y=zscore)) +
-  geom_point(alpha=.5) +
-  geom_smooth(method='lm',color='black') +
-  labs(x="Inoculum network connectivity",y="Scaled plant health measure") +
-  facet_wrap(~measure,scales='free') +
+  # geom_point(alpha=.5) +
+  geom_smooth(method='lm',color='black',fill='lightgray') +
+  labs(x="Inoculum network connectivity",y="Leaf number") +
+  # facet_wrap(~measure,scales='free') +
   theme_minimal() +
   theme(strip.text = element_text(face='bold',size=16),
-        axis.text.y = element_blank(),
-        axis.title = element_text(face='bold',size = 16))
-ggsave("Output/figs/fungal_network_connectivity_vs_plant_health.png")
+        axis.text.x = element_blank(),
+        axis.title = element_text(face='bold',size = 16),panel.grid = element_blank()
+        )
+ggsave("Output/figs/fungal_network_connectivity_vs_leaf_number_noaxis.jpg",width = 6,height = 6,dpi=300)
 
 
 (
