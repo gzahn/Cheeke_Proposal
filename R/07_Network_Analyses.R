@@ -178,6 +178,23 @@ igraph::assortativity(fung_network,
                       types1 = ps@sam_data$inoculum_site %>% factor %>% as.numeric)
 igraph::largest_cliques(fung_network)
 
+
+# find hub taxa (in inoc 4)
+
+fung4 <- 
+fung %>% 
+  subset_samples(inoculum_site == "4") 
+fung4 %>% 
+  subset_taxa(taxa_sums(fung4) > 1)
+igraph::betweenness(igraph_ITS_4)[igraph::betweenness(igraph_ITS_4) > 1000]
+tax_table(fung4)[which(igraph::betweenness(igraph_ITS_4) > 1000)] %>% unname %>% 
+  as.data.frame() %>% 
+  reduce(paste)
+tax_table(fung4)[which(igraph::degree(igraph_ITS_4) > 4)]
+
+
+
+fung %>% ntaxa()
 # grab response of each plant variable
 leaf_mod <- fung %>% 
   microbiome::meta() %>% 
@@ -218,4 +235,3 @@ fung %>%
   labs(y="Leaf number (scaled/centered)") +
   lims(y=c(-1.25,2))
 ggsave("./Output/figs/new_leaf_number_plot2.png",height = 4,width = 12)
-scale
