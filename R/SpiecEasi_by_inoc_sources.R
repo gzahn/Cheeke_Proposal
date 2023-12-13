@@ -20,6 +20,20 @@ library(patchwork); packageVersion("patchwork")
 library(igraph); packageVersion("igraph")
 library(SpiecEasi); packageVersion("SpiecEasi")
 
+plot_hubs <- function(graph,bigpoint=10,littlepoint=3){
+  am.coord <- layout.auto(graph)
+  art <- articulation_points(graph)
+  plot(graph,
+       layout = am.coord,
+       vertex.size=(scale01(abs(igraph::authority_score(graph)$vector)) * 10)+3,
+       vertex.label=NA,main=paste0(marker,"_inoc_",inoc))
+}
+
+scale01 <- function(x){
+  if(max(x) == 0){return(x)}
+  if(max(x) > 0){return((x - min(x)) / (max(x) - min(x)))}
+}
+
 # Data
 bact <- readRDS("./Output/16S_clean_phyloseq_object.RDS") %>% 
   subset_samples(species == "GrandFir") 
@@ -73,7 +87,7 @@ for(i in unique(fung@sam_data$inoculum_site)){
   vsize    <- transform_sample_counts(ps_sub,function(x){x/sum(x)}) %>% taxa_sums() + 3
   am.coord <- layout.auto(se_igraph)
   png(filename = paste0("./Output/figs/igraph_",marker,"_",inoc,".png"),width = 4,height = 4,res = 200,units = "in")
-  plot(se_igraph, layout=am.coord, vertex.size=vsize, vertex.label=NA,main=paste0(marker,"_inoc_",inoc))
+  plot_hubs(se_igraph)
   dev.off()
 }
 

@@ -204,6 +204,7 @@ coef(leaf_mod)
 
 log(coef(leaf_mod)[1] + coef(leaf_mod)[2]) - log(coef(leaf_mod)[1])
 
+beepr::beep(sound = 4)
 
 fung %>% 
   microbiome::meta() %>% 
@@ -218,20 +219,25 @@ fung %>%
   mutate(scaled_leaf_number = scale(leaf_number),
          scaled_bud_number = scale(bud_number),
          scaled_height = scale(height)) %>% 
+  pivot_longer(starts_with("scaled_"),names_to = "measure",values_to = "response",names_prefix = "scaled_",values_transform = as.numeric) %>% 
   # mutate(z_leaf_number = zscore(leaf_number) %>% log,
   #        z_bud_number = zscore(bud_number) %>% log,
   #        z_height = zscore(height) %>% log) %>% 
   # pivot_longer(starts_with("z_"),names_to = "measure",values_to = "log_zscore",names_prefix = "z_") %>% 
   ggplot(aes(x=factor(inoculum_site,levels=c("Sterile","3","2","5","6","1","4")),
-             y=scaled_leaf_number)) +
+             y=response,
+             fill = measure)) +
   geom_hline(yintercept = 0,linetype=2) +
-  geom_boxplot(fill="#6e4618") +
+  geom_boxplot() + # fill="#6e4618"
   # stat_summary(fun='mean',fill="#6e4618",geom = 'bar') +
   theme_minimal() +
   theme(axis.text.x = element_blank(),
         axis.title.x = element_blank(),
-        axis.title.y = element_text(face='bold',size=12),panel.grid = element_blank()
-          ) +
-  labs(y="Leaf number (scaled/centered)") +
-  lims(y=c(-1.25,2))
-ggsave("./Output/figs/new_leaf_number_plot2.png",height = 4,width = 12)
+        axis.title.y = element_text(face='bold',size=18),panel.grid = element_blank(),
+        legend.position = 'bottom',legend.text = element_text(size=12,face='bold'),
+        legend.title = element_text(size=18,face='bold')) +
+  labs(y="Plant response (scaled/centered)",fill="Measure") +
+  lims(y=c(-1.25,2)) +
+  scale_fill_manual(values = c("#6e4618","#97b031","#86808c"),labels = c("Bud number","Height","Leaf number"))
+
+ggsave("./Output/figs/new_leaf_number_plot3.png",height = 4,width = 12)
